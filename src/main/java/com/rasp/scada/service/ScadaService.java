@@ -1,6 +1,7 @@
 package com.rasp.scada.service;
 
 import com.pi4j.io.gpio.*;
+import com.pi4j.io.serial.*;
 import com.rasp.scada.bean.CurrentRelayStatus;
 import com.rasp.scada.bean.RelayInstructionHistory;
 import com.rasp.scada.bean.UserDetail;
@@ -12,8 +13,12 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.StringTokenizer;
 
 @Service
 public class ScadaService {
@@ -36,11 +41,6 @@ public class ScadaService {
         }
         else
             return null;
-    }
-
-    public BigDecimal getCurrent(String relayNo){
-        BigDecimal current = currentValue(relayNo);
-        return current;
     }
 
     public String getRelayStatus(String relayNo){
@@ -131,16 +131,16 @@ public class ScadaService {
         if(relayNo.equals("R")){
             if(status.equals("ON")){
                 final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(PortUtil.R_PHASE_PIN_ON, "R Phase Pin ON");
-                pin.pulse(PortUtil.PULSE_TIME);
+                pin.pulse(PortUtil.PULSE_TIME, true);
 
-                Thread.sleep(3000);
+                Thread.sleep(250);
                 gpio.unprovisionPin(pin);
             }
             else if(status.equals("OFF")){
                 final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(PortUtil.R_PHASE_PIN_OFF, "R Phase Pin OFF");
-                pin.pulse(PortUtil.PULSE_TIME);
+                pin.pulse(PortUtil.PULSE_TIME, true);
 
-                Thread.sleep(3000);
+                Thread.sleep(250);
                 gpio.unprovisionPin(pin);
             }
             else{
@@ -150,16 +150,16 @@ public class ScadaService {
         else if(relayNo.equals("Y")){
             if(status.equals("ON")){
                 final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(PortUtil.Y_PHASE_PIN_ON, "Y Phase Pin ON");
-                pin.pulse(PortUtil.PULSE_TIME);
+                pin.pulse(PortUtil.PULSE_TIME, true);
 
-                Thread.sleep(3000);
+                Thread.sleep(250);
                 gpio.unprovisionPin(pin);
             }
             else if(status.equals("OFF")){
                 final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(PortUtil.Y_PHASE_PIN_OFF, "Y Phase Pin OFF");
-                pin.pulse(PortUtil.PULSE_TIME);
+                pin.pulse(PortUtil.PULSE_TIME, true);
 
-                Thread.sleep(3000);
+                Thread.sleep(250);
                 gpio.unprovisionPin(pin);
             }
             else{
@@ -169,16 +169,16 @@ public class ScadaService {
         else if(relayNo.equals("B")){
             if(status.equals("ON")){
                 final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(PortUtil.B_PHASE_PIN_ON, "B Phase Pin ON");
-                pin.pulse(PortUtil.PULSE_TIME);
+                pin.pulse(PortUtil.PULSE_TIME, true);
 
-                Thread.sleep(3000);
+                Thread.sleep(250);
                 gpio.unprovisionPin(pin);
             }
             else if(status.equals("OFF")){
                 final GpioPinDigitalOutput pin = gpio.provisionDigitalOutputPin(PortUtil.B_PHASE_PIN_OFF, "B Phase Pin OFF");
-                pin.pulse(PortUtil.PULSE_TIME);
+                pin.pulse(PortUtil.PULSE_TIME, true);
 
-                Thread.sleep(3000);
+                Thread.sleep(250);
                 gpio.unprovisionPin(pin);
             }
             else{
@@ -191,7 +191,52 @@ public class ScadaService {
     }
 
     //Method which gets the current value
-    private BigDecimal currentValue(String relayNo){
-        return new BigDecimal(0);
+    public String[] getCurrent(double ctRatio) throws Exception{
+        String[] currentValues = new String[3];
+        try{
+            final Serial serial = SerialFactory.createInstance();
+                SerialConfig config = new SerialConfig();
+
+                config.device(SerialPort.getDefaultPort())
+                        .baud(Baud._9600)
+                        .dataBits(DataBits._8)
+                        .parity(Parity.NONE)
+                        .stopBits(StopBits._1)
+                        .flowControl(FlowControl.NONE);
+
+                serial.open(config);
+
+            InputStream inpStrm = serial.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inpStrm));
+            String line;
+            boolean read = true;
+            while(read){
+                line = reader.readLine();
+                System.out.println(line);
+                if(line.charAt(0)=='#' && line.charAt(line.length()-1)=='$'){
+                    String currentLine = line.substring(1, line.length()-2);
+                    System.out.println(currentLine+"\n");
+                    StringTokenizer tokenizer = new StringTokenizer(currentLine, ",");
+                    String rPhase = tokenizer.nextToken().trim();
+                    String yPhase = tokenizer.nextToken().trim();
+                    String bPhase = tokenizer.nextToken().trim();
+                    double rPhaseCurrent = Double.parseDouble(rPhase)*ctRatio;
+                    double yPhaseCurrent = Double.parseDouble(yPhase)*ctRatio;
+                    double bPhaseCurrent = Double.parseDouble(bPhase)*ctRatio;
+                    currentValues[0] = Double.toString(rPhaseCurrent);
+                    currentValues[1] = Double.toString(yPhaseCurrent);
+                    currentValues[2] = Double.toString(bPhaseCurrent);
+                    read = false;
+                }
+            }
+
+            serial.close();
+            inpStrm.close();
+        }catch (Exception e){
+            e.printStackTrace();
+            throw new Exception("Couldn't read current!");
+        }
+
+        return currentValues;
     }
 }

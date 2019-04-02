@@ -1,6 +1,7 @@
 package com.rasp.scada.controller;
 
 import com.rasp.scada.bean.UserDetail;
+import com.rasp.scada.response.CurrentResponse;
 import com.rasp.scada.response.Response;
 import com.rasp.scada.response.LoginResponse;
 import com.rasp.scada.service.ScadaService;
@@ -14,7 +15,7 @@ import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/scada")
-@CrossOrigin(origins = {"http://localhost:4200", "http://192.168.2.8:4200"})
+@CrossOrigin(origins = {"http://localhost:4200", "http://192.168.2.8:4200", "http://192.168.1.14:4200"})
 public class ScadaController {
     @Autowired
     private ScadaService scadaService;
@@ -33,13 +34,16 @@ public class ScadaController {
     }
 
     /////////////////////////////////////////////////Current value/////////////////////////////////////////////////////
-    @RequestMapping(value = "/current", method = RequestMethod.GET, params = "relay-no")
-    public ResponseEntity<?> getCurrent(@RequestParam("relay-no") String relayNo){
+    @RequestMapping(value = "/current", method = RequestMethod.GET, params = {"userId","ctRatio"})
+    public ResponseEntity<?> getCurrent(@RequestParam("userId") String userId, @RequestParam("ctRatio") String ctRatio){
+        System.out.println("Inside getCurrent() controller");
         try{
-            BigDecimal current = scadaService.getCurrent(relayNo);
-            return new ResponseEntity<BigDecimal>(current, HttpStatus.OK);
+            String[] currentValues = scadaService.getCurrent(Double.parseDouble(ctRatio));
+            CurrentResponse response = new CurrentResponse(currentValues[0], currentValues[1], currentValues[2]);
+            return new ResponseEntity<CurrentResponse>(response, HttpStatus.OK);
         }
         catch (Exception e){
+            e.printStackTrace();
             return new ResponseEntity<Response>(new Response(HttpStatus.BAD_REQUEST, "Error occurred while reading the value of current"), HttpStatus.BAD_REQUEST);
         }
     }
