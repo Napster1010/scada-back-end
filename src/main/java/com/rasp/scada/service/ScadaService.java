@@ -3,9 +3,11 @@ package com.rasp.scada.service;
 import com.pi4j.io.gpio.*;
 import com.pi4j.io.serial.*;
 import com.rasp.scada.bean.CurrentRelayStatus;
+import com.rasp.scada.bean.ErrorCorrection;
 import com.rasp.scada.bean.RelayInstructionHistory;
 import com.rasp.scada.bean.UserDetail;
 import com.rasp.scada.repository.CurrentRelayStatusRepository;
+import com.rasp.scada.repository.ErrorCorrectionRepository;
 import com.rasp.scada.repository.RelayInstructionHistoryRepository;
 import com.rasp.scada.repository.UserDetailRepository;
 import com.rasp.scada.util.PortUtil;
@@ -30,6 +32,9 @@ public class ScadaService {
 
     @Autowired
     private RelayInstructionHistoryRepository relayInstructionHistoryRepository;
+
+    @Autowired
+    private ErrorCorrectionRepository errorCorrectionRepository;
 
     public UserDetail authenticateUser(String userId, String password){
         UserDetail userDetail = userDetailRepository.findByUserId((userId));
@@ -220,9 +225,27 @@ public class ScadaService {
                     String rPhase = tokenizer.nextToken().trim();
                     String yPhase = tokenizer.nextToken().trim();
                     String bPhase = tokenizer.nextToken().trim();
-                    double rPhaseCurrent = Double.parseDouble(rPhase)*ctRatio;
-                    double yPhaseCurrent = Double.parseDouble(yPhase)*ctRatio;
-                    double bPhaseCurrent = Double.parseDouble(bPhase)*ctRatio;
+                    double rPhaseCurrent = Double.parseDouble(rPhase);
+                    double yPhaseCurrent = Double.parseDouble(yPhase);
+                    double bPhaseCurrent = Double.parseDouble(bPhase);
+
+                    //Check for correction values
+                    ErrorCorrection errorCorrectionR = errorCorrectionRepository.findByPhaseAndStartCurrentValueLessThanEqualAndEndCurrentValueGreaterThanEqual("R", rPhaseCurrent, rPhaseCurrent);
+                    ErrorCorrection errorCorrectionY = errorCorrectionRepository.findByPhaseAndStartCurrentValueLessThanEqualAndEndCurrentValueGreaterThanEqual("Y", yPhaseCurrent, yPhaseCurrent);
+                    ErrorCorrection errorCorrectionB = errorCorrectionRepository.findByPhaseAndStartCurrentValueLessThanEqualAndEndCurrentValueGreaterThanEqual("B", bPhaseCurrent, bPhaseCurrent);
+
+                    //Adjust the errors into the measured values
+                    if(errorCorrectionR!=null)
+                        rPhaseCurrent += errorCorrectionR.getError();
+                    if(errorCorrectionY!=null)
+                        yPhaseCurrent += errorCorrectionY.getError();
+                    if(errorCorrectionB!=null)
+                        bPhaseCurrent += errorCorrectionB.getError();
+
+                    rPhaseCurrent *= ctRatio;
+                    yPhaseCurrent *= ctRatio;
+                    bPhaseCurrent *= ctRatio;
+
                     currentValues[0] = Double.toString(rPhaseCurrent);
                     currentValues[1] = Double.toString(yPhaseCurrent);
                     currentValues[2] = Double.toString(bPhaseCurrent);
