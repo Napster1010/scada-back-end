@@ -213,7 +213,7 @@ public class ScadaService {
             while(read){
                 line = reader.readLine();
                 System.out.println(line);
-                if(line.charAt(0)=='#' && line.charAt(line.length()-1)=='$'){
+                if(line.length()>=2 && line.charAt(0)=='#' && line.charAt(line.length()-1)=='$'){
                     String currentLine = line.substring(1, line.length()-2);
                     System.out.println(currentLine+"\n");
                     StringTokenizer tokenizer = new StringTokenizer(currentLine, ",");

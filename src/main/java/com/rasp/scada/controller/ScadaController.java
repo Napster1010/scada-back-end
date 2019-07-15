@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/scada")
-@CrossOrigin(origins = {"http://localhost:4200", "http://192.168.2.8:4200", "http://192.168.1.14:4200"})
+@CrossOrigin(origins = "*")
 public class ScadaController {
     @Autowired
     private ScadaService scadaService;
