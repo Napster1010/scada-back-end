@@ -1,15 +1,11 @@
 package com.rasp.scada.service;
 
-import com.pi4j.io.gpio.*;
+import com.pi4j.io.gpio.GpioController;
+import com.pi4j.io.gpio.GpioFactory;
+import com.pi4j.io.gpio.GpioPinDigitalOutput;
 import com.pi4j.io.serial.*;
-import com.rasp.scada.bean.CurrentRelayStatus;
-import com.rasp.scada.bean.ErrorCorrection;
-import com.rasp.scada.bean.RelayInstructionHistory;
-import com.rasp.scada.bean.UserDetail;
-import com.rasp.scada.repository.CurrentRelayStatusRepository;
-import com.rasp.scada.repository.ErrorCorrectionRepository;
-import com.rasp.scada.repository.RelayInstructionHistoryRepository;
-import com.rasp.scada.repository.UserDetailRepository;
+import com.rasp.scada.bean.*;
+import com.rasp.scada.repository.*;
 import com.rasp.scada.util.PortUtil;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +14,8 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.StringTokenizer;
 
@@ -35,6 +32,9 @@ public class ScadaService {
 
     @Autowired
     private ErrorCorrectionRepository errorCorrectionRepository;
+
+    @Autowired
+    private CurrentHistoryRepository currentHistoryRepository;
 
     public UserDetail authenticateUser(String userId, String password){
         UserDetail userDetail = userDetailRepository.findByUserId((userId));
@@ -252,9 +252,21 @@ public class ScadaService {
                     read = false;
                 }
             }
-
             serial.close();
             inpStrm.close();
+
+            //save current values every 15 minutes
+            CurrentHistory currentHistory = currentHistoryRepository.findLatestRecord();
+
+            if(currentHistory==null || Duration.between(currentHistory.getTimestamp(), LocalDateTime.now()).toMinutes()>=1){
+                CurrentHistory newCurrentHistory = new CurrentHistory();
+                newCurrentHistory.setrPhaseCurrent(Double.parseDouble(currentValues[0]));
+                newCurrentHistory.setyPhaseCurrent(Double.parseDouble(currentValues[1]));
+                newCurrentHistory.setbPhaseCurrent(Double.parseDouble(currentValues[2]));
+                newCurrentHistory.setTimestamp(LocalDateTime.now());
+                currentHistoryRepository.save(newCurrentHistory);
+            }
+
         }catch (Exception e){
             e.printStackTrace();
             throw new Exception("Couldn't read current!");
