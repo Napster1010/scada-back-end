@@ -258,7 +258,7 @@ public class ScadaService {
             //save current values every 15 minutes
             CurrentHistory currentHistory = currentHistoryRepository.findLatestRecord();
 
-            if(currentHistory==null || Duration.between(currentHistory.getTimestamp(), LocalDateTime.now()).toMinutes()>=1){
+            if(currentHistory==null || Duration.between(currentHistory.getTimestamp(), LocalDateTime.now()).toMinutes()>=15){
                 CurrentHistory newCurrentHistory = new CurrentHistory();
                 newCurrentHistory.setrPhaseCurrent(Double.parseDouble(currentValues[0]));
                 newCurrentHistory.setyPhaseCurrent(Double.parseDouble(currentValues[1]));
